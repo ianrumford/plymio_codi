@@ -1,14 +1,15 @@
 defmodule Plymio.Codi.Stage.Normalise do
   @moduledoc false
 
-  require Plymio.Fontais.Vekil, as: PFM
+  require Plymio.Vekil.Utility, as: VEKILUTIL
   alias Plymio.Codi, as: CODI
 
   use Plymio.Fontais.Attribute
+  use Plymio.Vekil.Attribute
   use Plymio.Codi.Attribute
 
   @codi_opts [
-    {@plymio_fontais_key_vekil, Plymio.Fontais.Codi.__vekil__()}
+    {@plymio_vekil_key_vekil, Plymio.Vekil.Codi.__vekil__()}
   ]
 
   @type t :: %CODI{}
@@ -38,7 +39,7 @@ defmodule Plymio.Codi.Stage.Normalise do
       map_collate0_enum: 2
     ]
 
-  import Plymio.Codi.Utility.GetSet
+  import Plymio.Codi.CPO
 
   def normalise_pattern_cpo(codi, cpo)
 
@@ -69,30 +70,86 @@ defmodule Plymio.Codi.Stage.Normalise do
   def normalise_pattern_spec(value)
 
   def normalise_pattern_spec({k, v})
-      when k == @plymio_codi_pattern_proxy do
-    [{@plymio_codi_key_proxy_name, v}] |> cpo_new
+      when k in [
+             @plymio_codi_pattern_proxy_fetch,
+             @plymio_codi_pattern_proxy_get,
+             @plymio_codi_pattern_proxy_delete
+           ] do
+    cond do
+      Keyword.keyword?(v) -> {:ok, v}
+      true -> {:ok, [{@plymio_codi_key_proxy_name, v}]}
+    end
+  end
+
+  def normalise_pattern_spec({k, v})
+      when k == @plymio_codi_pattern_proxy_put do
+    cond do
+      Keyword.keyword?(v) ->
+        # could be the proxy_args or a cpo: use proxy_args key to decide
+        v
+        |> Keyword.has_key?(@plymio_codi_key_proxy_args)
+        |> case do
+          true ->
+            {:ok, v}
+
+          _ ->
+            {:ok, [{@plymio_codi_key_proxy_args, v}]}
+        end
+
+      true ->
+        new_error_result(m: "pattern :proxy_put item invalid", v: v)
+    end
+  end
+
+  def normalise_pattern_spec({k, v})
+      when k == @plymio_codi_pattern_proxy_get do
+    cond do
+      Keyword.keyword?(v) ->
+        # could be the proxy_args or a cpo: use proxy_args key to decide
+        v
+        |> Keyword.has_key?(@plymio_codi_key_proxy_args)
+        |> case do
+          true ->
+            {:ok, v}
+
+          _ ->
+            {:ok, [{@plymio_codi_key_proxy_args, v}]}
+        end
+
+      true ->
+        new_error_result(m: "pattern :proxy_get item invalid", v: v)
+    end
   end
 
   def normalise_pattern_spec({k, v})
       when k in [
              @plymio_codi_pattern_doc
            ] do
-    [
-      {@plymio_codi_key_pattern, @plymio_codi_pattern_doc},
-      {@plymio_codi_key_fun_doc, v}
-    ]
-    |> cpo_new
+    cond do
+      Keyword.keyword?(v) -> {:ok, v}
+      true -> {:ok, [{@plymio_codi_key_fun_doc, v}]}
+    end
   end
 
   def normalise_pattern_spec({k, v})
       when k in [
              @plymio_codi_pattern_since
            ] do
-    [
-      {@plymio_codi_key_pattern, @plymio_codi_pattern_since},
-      {@plymio_codi_key_since, v}
-    ]
-    |> cpo_new
+    cond do
+      Keyword.keyword?(v) -> {:ok, v}
+      true -> {:ok, [{@plymio_codi_key_since, v}]}
+    end
+  end
+
+  def normalise_pattern_spec({k, v}) do
+    # expect v to be an opts
+    cond do
+      Keyword.keyword?(v) ->
+        {:ok, v}
+
+      true ->
+        new_error_result(m: "pattern #{inspect(k)} item invalid", v: v)
+    end
   end
 
   def normalise_pattern_spec(v) do
@@ -112,11 +169,19 @@ defmodule Plymio.Codi.Stage.Normalise do
   end
 
   def normalise_pattern_item({@plymio_codi_key_form, v}) do
-    with {:ok, cpo} <- [] |> cpo_put_pattern(@plymio_codi_key_form),
-         {:ok, _cpo} = result <- cpo |> cpo_done_with_form(v) do
-      result
-    else
-      {:error, %{__exception__: true}} = result -> result
+    v
+    |> Keyword.keyword?()
+    |> case do
+      true ->
+        v |> cpo_put_pattern(@plymio_codi_pattern_form)
+
+      _ ->
+        with {:ok, cpo} <- [] |> cpo_put_pattern(@plymio_codi_pattern_form),
+             {:ok, _cpo} = result <- cpo |> cpo_put_form(v) do
+          result
+        else
+          {:error, %{__exception__: true}} = result -> result
+        end
     end
   end
 
@@ -131,11 +196,19 @@ defmodule Plymio.Codi.Stage.Normalise do
           v |> opts_normalise
 
         true ->
-          {pattern, v} |> normalise_pattern_spec
+          {:ok, v}
       end
       |> case do
-        {:error, %{__struct__: _}} = result -> result
-        {:ok, cpo} -> cpo |> cpo_put_pattern(pattern)
+        {:error, %{__struct__: _}} = result ->
+          result
+
+        {:ok, v} ->
+          with {:ok, cpo} <- {pattern, v} |> normalise_pattern_spec,
+               {:ok, _cpo} = result <- cpo |> cpo_put_pattern(pattern) do
+            result
+          else
+            {:error, %{__exception__: true}} = result -> result
+          end
       end
     else
       {:error, %{__exception__: true}} = result -> result
@@ -174,10 +247,10 @@ defmodule Plymio.Codi.Stage.Normalise do
   end
 
   [
-    :def_produce_stage_worker_t_is_mccp0e_ozi_t,
-    :def_produce_stage_field_items
+    :workflow_def_produce_stage_worker_t_is_mccp0e_ozi_t,
+    :workflow_def_produce_stage_field_items
   ]
-  |> PFM.reify_proxies(
+  |> VEKILUTIL.reify_proxies(
     @codi_opts ++
       [
         {@plymio_fontais_key_postwalk,

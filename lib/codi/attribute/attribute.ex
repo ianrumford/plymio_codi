@@ -3,10 +3,18 @@ defmodule Plymio.Codi.Attribute do
 
   defmacro __using__(_opts \\ []) do
     quote do
-      @plymio_codi_key_transform :transform
-      @plymio_codi_key_postwalk :postwalk
+      @plymio_codi_key_state :state
 
-      @plymio_codi_key_proxy :proxy
+      @plymio_codi_key_forms_edit :forms_edit
+
+      @plymio_codi_key_proxy_fetch :proxy_fetch
+      @plymio_codi_key_proxy_put :proxy_put
+      @plymio_codi_key_proxy_get :proxy_get
+      @plymio_codi_key_proxy_delete :proxy_delete
+
+      @plymio_codi_key_proxy_name :proxy_name
+      @plymio_codi_key_proxy_args :proxy_args
+
       @plymio_codi_key_form :form
       @plymio_codi_key_forms :forms
       @plymio_codi_key_vekil :vekil
@@ -16,6 +24,7 @@ defmodule Plymio.Codi.Attribute do
       @plymio_codi_key_typespec_spec :typespec_spec
       @plymio_codi_key_doc :doc
       @plymio_codi_key_since :since
+      @plymio_codi_key_module :module
       @plymio_codi_key_prefix :prefix
       @plymio_codi_key_args :args
       @plymio_codi_key_sig :sig
@@ -34,7 +43,6 @@ defmodule Plymio.Codi.Attribute do
 
       @plymio_codi_key_get_docs :get_docs
 
-      @plymio_codi_key_proxy_name :proxy_name
       @plymio_codi_key_vekil :vekil
 
       @plymio_codi_key_fun_module :fun_module
@@ -85,9 +93,15 @@ defmodule Plymio.Codi.Attribute do
       @plymio_codi_field_vekil @plymio_codi_key_vekil
       @plymio_codi_field_module_fva_dict :module_fva_dict
       @plymio_codi_field_module_doc_dict :module_doc_dict
+      @plymio_codi_field_forms_edit @plymio_codi_key_forms_edit
 
       @plymio_codi_pattern_form @plymio_codi_key_form
-      @plymio_codi_pattern_proxy @plymio_codi_key_proxy
+
+      @plymio_codi_pattern_proxy_fetch @plymio_codi_key_proxy_fetch
+      @plymio_codi_pattern_proxy_put @plymio_codi_key_proxy_put
+      @plymio_codi_pattern_proxy_get @plymio_codi_key_proxy_get
+      @plymio_codi_pattern_proxy_delete @plymio_codi_key_proxy_delete
+
       @plymio_codi_pattern_doc @plymio_codi_key_doc
       @plymio_codi_pattern_since @plymio_codi_key_since
       @plymio_codi_pattern_bang @plymio_codi_key_bang
@@ -105,7 +119,10 @@ defmodule Plymio.Codi.Attribute do
         @plymio_codi_pattern_typespec_spec,
         @plymio_codi_pattern_delegate,
         @plymio_codi_pattern_delegate_module,
-        @plymio_codi_pattern_proxy
+        @plymio_codi_pattern_proxy_get,
+        @plymio_codi_pattern_proxy_fetch,
+        @plymio_codi_pattern_proxy_put,
+        @plymio_codi_pattern_proxy_delete
       ]
 
       @plymio_codi_field_alias_snippets {@plymio_codi_field_snippets, nil}
@@ -119,10 +136,14 @@ defmodule Plymio.Codi.Attribute do
       @plymio_codi_field_alias_vekil {@plymio_codi_field_vekil, [:vekil]}
       @plymio_codi_field_alias_module_fva_dict {@plymio_codi_field_module_fva_dict, []}
       @plymio_codi_field_alias_module_doc_dict {@plymio_codi_field_module_doc_dict, []}
+      @plymio_codi_field_alias_forms_edit {@plymio_codi_field_forms_edit,
+                                           [:form_edit, :edit_form, :edit_forms]}
 
       @plymio_codi_key_alias_pattern {@plymio_codi_key_pattern, nil}
       @plymio_codi_key_alias_status {@plymio_codi_key_status, nil}
+      @plymio_codi_key_alias_state {@plymio_codi_key_state, nil}
       @plymio_codi_key_alias_form {@plymio_codi_key_form, nil}
+      @plymio_codi_key_alias_default {@plymio_codi_key_default, nil}
 
       @plymio_codi_pattern_alias_doc {@plymio_codi_pattern_doc, nil}
       @plymio_codi_pattern_alias_bang {@plymio_codi_pattern_bang, nil}
@@ -132,10 +153,19 @@ defmodule Plymio.Codi.Attribute do
       @plymio_codi_pattern_alias_typespec_spec {@plymio_codi_pattern_typespec_spec, [:spec]}
       @plymio_codi_pattern_alias_doc {@plymio_codi_pattern_doc, nil}
       @plymio_codi_pattern_alias_since {@plymio_codi_pattern_since, nil}
-      @plymio_codi_pattern_alias_proxy {@plymio_codi_pattern_proxy, [:proxies]}
       @plymio_codi_pattern_alias_form {@plymio_codi_pattern_form, [:forms, :ast, :asts]}
-
       @plymio_codi_key_alias_since {@plymio_codi_key_since, nil}
+
+      @plymio_codi_pattern_alias_proxy_fetch {@plymio_codi_pattern_proxy_fetch,
+                                              [:proxy, :proxies, :proxies_fetch]}
+      @plymio_codi_pattern_alias_proxy_put {@plymio_codi_pattern_proxy_put, [:proxies_put]}
+      @plymio_codi_pattern_alias_proxy_get {@plymio_codi_pattern_proxy_get, [:proxies_get]}
+      @plymio_codi_pattern_alias_proxy_delete {@plymio_codi_pattern_proxy_delete,
+                                               [:proxies_delete]}
+
+      @plymio_codi_key_alias_proxy_name {@plymio_codi_key_proxy_name,
+                                         [:proxy, :proxy_names, :proxies]}
+      @plymio_codi_key_alias_proxy_args {@plymio_codi_key_proxy_args, [:args]}
 
       @plymio_codi_key_alias_fun_module {@plymio_codi_key_fun_module,
                                          [:module, :fun_mod, :function_module]}
@@ -216,17 +246,14 @@ defmodule Plymio.Codi.Attribute do
       @plymio_codi_key_alias_bang_arity {@plymio_codi_key_bang_arity,
                                          [:arity, :fun_arity, :function_arity]}
 
-      @plymio_codi_key_alias_proxy_name {@plymio_codi_key_proxy_name,
-                                         [:proxy, :proxy_names, :proxies]}
       @plymio_codi_key_alias_form {@plymio_codi_key_form, [:forms, :asts, :ast]}
 
-      @plymio_codi_key_alias_transform {@plymio_codi_key_transform, nil}
-      @plymio_codi_key_alias_postwalk {@plymio_codi_key_postwalk, [:walk]}
+      @plymio_codi_key_alias_forms_edit @plymio_codi_field_alias_forms_edit
 
       @plymio_codi_stage_normalise :normalise
       @plymio_codi_stage_express :express
       @plymio_codi_stage_review :review
-      @plymio_codi_stage_resolve :resolve
+      @plymio_codi_stage_commit :commit
 
       @plymio_codi_status_done :done
       @plymio_codi_status_active :active

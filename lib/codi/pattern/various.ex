@@ -26,17 +26,18 @@ defmodule Plymio.Codi.Pattern.Various do
       validate_since: 1
     ]
 
-  import Plymio.Codi.Utility.GetSet,
+  import Plymio.Codi.CPO,
     only: [
+      cpo_fetch_form: 1,
       cpo_get_since: 1,
-      cpo_done_with_form: 1,
-      cpo_done_with_form: 2
+      cpo_done_with_edited_form: 2
     ]
 
   @pattern_form_kvs_alias [
     @plymio_codi_key_alias_pattern,
     @plymio_codi_key_alias_status,
-    @plymio_codi_key_alias_form
+    @plymio_codi_key_alias_form,
+    @plymio_codi_key_alias_forms_edit
   ]
 
   @pattern_form_dict_alias @pattern_form_kvs_alias
@@ -49,7 +50,8 @@ defmodule Plymio.Codi.Pattern.Various do
   @pattern_since_kvs_alias [
     @plymio_codi_key_alias_pattern,
     @plymio_codi_key_alias_status,
-    @plymio_codi_key_alias_since
+    @plymio_codi_key_alias_since,
+    @plymio_codi_key_alias_forms_edit
   ]
 
   @pattern_since_dict_alias @pattern_since_kvs_alias
@@ -64,7 +66,8 @@ defmodule Plymio.Codi.Pattern.Various do
   def express_pattern(%CODI{} = state, pattern, cpo)
       when pattern == @plymio_codi_pattern_form do
     with {:ok, cpo} <- cpo |> cpo_pattern_form_normalise,
-         {:ok, cpo} <- cpo |> cpo_done_with_form do
+         {:ok, form} <- cpo |> cpo_fetch_form,
+         {:ok, cpo} <- cpo |> cpo_done_with_edited_form(form) do
       {:ok, {cpo, state}}
     else
       {:error, %{__exception__: true}} = result -> result
@@ -88,7 +91,7 @@ defmodule Plymio.Codi.Pattern.Various do
                 @since unquote(since)
               end
 
-            with {:ok, cpo} <- cpo |> cpo_done_with_form(pattern_form) do
+            with {:ok, cpo} <- cpo |> cpo_done_with_edited_form(pattern_form) do
               {:ok, {cpo, state}}
             else
               {:error, %{__exception__: true}} = result -> result

@@ -1,4 +1,4 @@
-defmodule Plymio.Codi.Utility.GetSet do
+defmodule Plymio.Codi.CPO do
   @moduledoc false
 
   require Plymio.Fontais.Option.Macro, as: PFOM
@@ -10,6 +10,7 @@ defmodule Plymio.Codi.Utility.GetSet do
 
   import Plymio.Fontais.Guard,
     only: [
+      is_value_set: 1,
       is_value_unset: 1,
       is_value_unset_or_nil: 1
     ]
@@ -22,7 +23,9 @@ defmodule Plymio.Codi.Utility.GetSet do
   import Plymio.Fontais.Form,
     only: [
       opts_forms_normalise: 2,
-      opts_forms_reduce: 2
+      opts_forms_reduce: 2,
+      forms_edit: 2,
+      forms_normalise: 1
     ]
 
   import Plymio.Fontais.Option,
@@ -30,6 +33,7 @@ defmodule Plymio.Codi.Utility.GetSet do
       opts_normalise: 1,
       opts_validate: 1,
       opts_get: 3,
+      opts_get_values: 3,
       opts_put: 3,
       opts_fetch: 2,
       opts_drop: 2
@@ -41,6 +45,7 @@ defmodule Plymio.Codi.Utility.GetSet do
     {@plymio_codi_key_pattern, nil},
     {@plymio_codi_key_status, nil},
     {@plymio_codi_key_form, nil},
+    {@plymio_codi_key_state, nil},
     {@plymio_codi_key_since, nil},
     {@plymio_codi_key_fun_module, nil},
     {@plymio_codi_key_fun_name, nil},
@@ -60,6 +65,7 @@ defmodule Plymio.Codi.Utility.GetSet do
     {@plymio_codi_key_delegate_arity, nil},
     {@plymio_codi_key_delegate_doc, nil},
     {@plymio_codi_key_proxy_name, nil},
+    {@plymio_codi_key_proxy_args, nil},
     {@plymio_codi_key_typespec_spec_name, nil},
     {@plymio_codi_key_typespec_spec_args, nil},
     {@plymio_codi_key_typespec_spec_arity, nil},
@@ -68,8 +74,8 @@ defmodule Plymio.Codi.Utility.GetSet do
     {@plymio_codi_key_drop, nil},
     {@plymio_codi_key_filter, nil},
     {@plymio_codi_key_reject, nil},
-    {@plymio_codi_key_postwalk, nil},
-    {@plymio_codi_key_transform, nil}
+    {@plymio_codi_key_forms_edit, nil},
+    {@plymio_codi_key_default, nil}
   ]
 
   @plymio_codi_cpo_dict_aliases @plymio_codi_cpo_kvs_aliases
@@ -146,9 +152,33 @@ defmodule Plymio.Codi.Utility.GetSet do
     cpo_get_since: %{
       key: @plymio_codi_key_since,
       default: @plymio_fontais_the_unset_value
+    },
+    cpo_get_default: %{
+      key: @plymio_codi_key_default,
+      default: @plymio_fontais_the_unset_value
+    },
+    cpo_get_proxy_args: %{
+      key: @plymio_codi_key_proxy_args,
+      default: []
+    },
+    cpo_get_state: %{
+      key: @plymio_codi_key_state,
+      default: @plymio_fontais_the_unset_value
+    },
+    cpo_get_forms_edit: %{
+      key: @plymio_codi_key_forms_edit,
+      default: []
     }
   ]
   |> PFOM.def_custom_opts_get()
+
+  [
+    cpo_get_forms: %{
+      key: @plymio_codi_key_form,
+      default: []
+    }
+  ]
+  |> PFOM.def_custom_opts_get_values()
 
   [
     cpo_fetch_patterns: @plymio_codi_field_patterns,
@@ -164,6 +194,7 @@ defmodule Plymio.Codi.Utility.GetSet do
 
   [
     cpo_put_patterns: @plymio_codi_field_patterns,
+    cpo_put_state: @plymio_codi_key_state,
     cpo_put_pattern: @plymio_codi_key_pattern,
     cpo_put_status: @plymio_codi_key_status,
     cpo_put_fun_module: @plymio_codi_key_fun_module,
@@ -235,6 +266,10 @@ defmodule Plymio.Codi.Utility.GetSet do
 
   def cpo_new(opts \\ [])
 
+  def cpo_new([]) do
+    {:ok, []}
+  end
+
   def cpo_new(opts) do
     with {:ok, _cpo} = result <- opts |> cpo_canonical_opts do
       result
@@ -255,13 +290,48 @@ defmodule Plymio.Codi.Utility.GetSet do
     end
   end
 
+  def cpo_edit_forms(cpo) do
+    with {:ok, forms} <- cpo |> cpo_get_forms,
+         {:ok, _forms} = result <- cpo |> cpo_edit_forms(forms) do
+      result
+    else
+      {:error, %{__exception__: true}} = result -> result
+    end
+  end
+
+  def cpo_edit_forms(cpo, forms) when is_value_set(forms) do
+    cpo
+    |> cpo_get_forms_edit
+    |> case do
+      {:ok, []} -> forms |> forms_normalise
+      {:ok, edits} -> forms |> forms_edit(edits)
+    end
+    |> case do
+      {:error, %{__struct__: _}} = result -> result
+      {:ok, _forms} = result -> result
+    end
+  end
+
+  def cpo_edit_forms(_cpo, forms) when is_value_unset(forms) do
+    {:ok, forms}
+  end
+
   def cpo_done_with_form(cpo) do
     cpo |> cpo_mark_status_done
   end
 
   def cpo_done_with_form(cpo, form) do
-    with {:ok, cpo} <- cpo |> cpo_done_with_form,
-         {:ok, _cpo} = result <- cpo |> cpo_put_form(form) do
+    with {:ok, cpo} <- cpo |> cpo_put_form(form),
+         {:ok, _cpo} = result <- cpo |> cpo_mark_status_done do
+      result
+    else
+      {:error, %{__exception__: true}} = result -> result
+    end
+  end
+
+  def cpo_done_with_edited_form(cpo, form) do
+    with {:ok, forms} <- cpo |> cpo_edit_forms(form),
+         {:ok, _cpo} = result <- cpo |> cpo_done_with_form(forms) do
       result
     else
       {:error, %{__exception__: true}} = result -> result
@@ -370,5 +440,19 @@ defmodule Plymio.Codi.Utility.GetSet do
 
   def cpo_reduce_forms(cpo) do
     cpo |> opts_forms_reduce(@plymio_codi_key_form)
+  end
+
+  def cpo_put_set_struct_field(cpo, %{__struct__: _} = state, field) do
+    with {:ok, field} <- field |> Plymio.Fontais.Utility.validate_key(),
+         {:ok, cpo} <- cpo |> cpo_normalise do
+      state
+      |> Map.get(field, @plymio_fontais_the_unset_value)
+      |> case do
+        x when is_value_set(x) -> cpo |> opts_put(field, x)
+        _ -> {:ok, cpo}
+      end
+    else
+      {:error, %{__exception__: true}} = result -> result
+    end
   end
 end

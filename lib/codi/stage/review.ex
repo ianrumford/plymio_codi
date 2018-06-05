@@ -1,21 +1,22 @@
 defmodule Plymio.Codi.Stage.Review do
   @moduledoc false
 
-  require Plymio.Fontais.Vekil, as: PFM
+  require Plymio.Vekil.Utility, as: VEKILUTIL
   alias Plymio.Codi, as: CODI
 
   use Plymio.Fontais.Attribute
+  use Plymio.Vekil.Attribute
   use Plymio.Codi.Attribute
 
   @codi_opts [
-    {@plymio_fontais_key_vekil, Plymio.Fontais.Codi.__vekil__()}
+    {@plymio_vekil_key_vekil, Plymio.Vekil.Codi.__vekil__()}
   ]
 
   @type t :: %CODI{}
   @type kv :: {any, any}
   @type error :: any
 
-  import Plymio.Codi.Utility.GetSet
+  import Plymio.Codi.CPO
 
   def pattern_review_item(codi, item)
 
@@ -32,10 +33,10 @@ defmodule Plymio.Codi.Stage.Review do
   end
 
   [
-    :def_produce_stage_worker_t_is_mccp0e_ozi_t,
-    :def_produce_stage_field_items
+    :workflow_def_produce_stage_worker_t_is_mccp0e_ozi_t,
+    :workflow_def_produce_stage_field_items
   ]
-  |> PFM.reify_proxies(
+  |> VEKILUTIL.reify_proxies(
     @codi_opts ++
       [
         {@plymio_fontais_key_postwalk,

@@ -49,7 +49,7 @@ defmodule Plymio.Codi.Utility do
       normalise1_result: 1
     ]
 
-  import Plymio.Codi.Utility.GetSet
+  import Plymio.Codi.CPO
 
   @type error :: Plymio.Codi.error()
 
@@ -92,8 +92,8 @@ defmodule Plymio.Codi.Utility do
 
           # +ve => generate e.g. arg1, arg2 etc
           arg when is_positive_integer(arg) ->
-            # prefix for generated var?
             opts
+            # prefix for generated var?
             |> Keyword.get(@plymio_codi_key_prefix)
             |> case do
               x when is_nil(x) ->
@@ -111,8 +111,8 @@ defmodule Plymio.Codi.Utility do
           # -ve => generate same prefix var
           # (use for type related argument hence any as default prefix)
           arg when is_negative_integer(arg) ->
-            # prefix for generated var?
             opts
+            # prefix for generated var?
             |> Keyword.get(@plymio_codi_key_prefix, :any)
             |> Macro.var(nil)
             |> List.duplicate(arg |> abs())
@@ -358,8 +358,6 @@ defmodule Plymio.Codi.Utility do
             {:error, %{__exception__: true}} = result -> result
           end
       end
-
-      #   {:ok, [Macro.var(:opts,nil) | fun_args |> Enum.slice(1 .. -1)]}
     else
       {:error, %{__exception__: true}} = result -> result
     end
@@ -536,7 +534,7 @@ defmodule Plymio.Codi.Utility do
           cpo |> cpo_get_type_name
 
         _ ->
-          new_error_result("cpo type name missing, got: #{inspect(cpo)}")
+          new_error_result(m: "cpo type name missing", v: cpo)
       end
     else
       {:error, %{__exception__: true}} = result -> result
@@ -606,7 +604,7 @@ defmodule Plymio.Codi.Utility do
 
         x when is_list(x) ->
           with {:ok, result_vars} <- x |> normalise_vars do
-            # how to build "properly"???
+            # how to build "properly"?
             [{:|, [], result_vars}]
             |> validate_vars
           else

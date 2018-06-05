@@ -33,7 +33,7 @@ defmodule Plymio.Codi.Pattern.Delegate do
       map_collate0_enum: 2
     ]
 
-  import Plymio.Codi.Utility.GetSet
+  import Plymio.Codi.CPO
 
   @pattern_delegate_kvs_alias [
     @plymio_codi_key_alias_pattern,
@@ -49,7 +49,8 @@ defmodule Plymio.Codi.Pattern.Delegate do
 
     # limited aliases
     {@plymio_codi_key_typespec_spec_args, [:spec_args]},
-    @plymio_codi_key_alias_typespec_spec_result
+    @plymio_codi_key_alias_typespec_spec_result,
+    @plymio_codi_key_alias_forms_edit
   ]
 
   @pattern_delegate_dict_alias @pattern_delegate_kvs_alias
@@ -69,7 +70,8 @@ defmodule Plymio.Codi.Pattern.Delegate do
     {@plymio_codi_key_take, nil},
     {@plymio_codi_key_drop, nil},
     {@plymio_codi_key_filter, nil},
-    {@plymio_codi_key_reject, nil}
+    {@plymio_codi_key_reject, nil},
+    @plymio_codi_key_alias_forms_edit
   ]
 
   @pattern_delegate_module_dict_alias @pattern_delegate_module_kvs_alias
@@ -137,7 +139,7 @@ defmodule Plymio.Codi.Pattern.Delegate do
            {:ok, {depend_product, %CODI{}}} <-
              depend_state |> Plymio.Codi.Stage.Normalise.normalise_snippets(),
            {:ok, depend_cpos} <- depend_product |> cpo_fetch_patterns,
-           {:ok, cpo} <- cpo |> cpo_done_with_form(pattern_form) do
+           {:ok, cpo} <- cpo |> cpo_done_with_edited_form(pattern_form) do
         cpos = depend_cpos ++ [cpo]
 
         {:ok, {cpos, state}}

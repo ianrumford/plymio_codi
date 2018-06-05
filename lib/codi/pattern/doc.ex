@@ -34,7 +34,7 @@ defmodule Plymio.Codi.Pattern.Doc do
       cpo_resolve_fun_arity: 1
     ]
 
-  import Plymio.Codi.Utility.GetSet
+  import Plymio.Codi.CPO
 
   @pattern_doc_kvs_alias [
     @plymio_codi_key_alias_pattern,
@@ -45,7 +45,8 @@ defmodule Plymio.Codi.Pattern.Doc do
     @plymio_codi_key_alias_fun_name,
     @plymio_codi_key_alias_fun_args,
     @plymio_codi_key_alias_fun_arity,
-    @plymio_codi_key_alias_delegate_name
+    @plymio_codi_key_alias_delegate_name,
+    @plymio_codi_key_alias_forms_edit
   ]
 
   @pattern_doc_dict_alias @pattern_doc_kvs_alias
@@ -160,7 +161,7 @@ defmodule Plymio.Codi.Pattern.Doc do
     with {:ok, cpo} <- cpo |> cpo_pattern_doc_normalise,
          {:ok, fun_doc} <- cpo |> cpo_get_fun_doc,
          {:ok, {form, %CODI{} = state}} <- state |> express_doc_pattern(fun_doc, cpo) do
-      with {:ok, cpo} <- cpo |> cpo_done_with_form(form) do
+      with {:ok, cpo} <- cpo |> cpo_done_with_edited_form(form) do
         {:ok, {cpo, state}}
       else
         {:error, %{__exception__: true}} = result -> result

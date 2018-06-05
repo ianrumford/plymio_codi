@@ -23,10 +23,10 @@ defmodule Plymio.Codi.Pattern.Typespec.Spec do
       cpo_resolve_type_result: 1
     ]
 
-  import Plymio.Codi.Utility.GetSet,
+  import Plymio.Codi.CPO,
     only: [
       cpo_get_type_result: 1,
-      cpo_done_with_form: 2
+      cpo_done_with_edited_form: 2
     ]
 
   @pattern_type_kvs_alias [
@@ -36,7 +36,8 @@ defmodule Plymio.Codi.Pattern.Typespec.Spec do
     @plymio_codi_key_alias_typespec_spec_name,
     @plymio_codi_key_alias_typespec_spec_args,
     @plymio_codi_key_alias_typespec_spec_arity,
-    @plymio_codi_key_alias_typespec_spec_result
+    @plymio_codi_key_alias_typespec_spec_result,
+    @plymio_codi_key_alias_forms_edit
   ]
 
   @pattern_type_dict_alias @pattern_type_kvs_alias
@@ -56,8 +57,8 @@ defmodule Plymio.Codi.Pattern.Typespec.Spec do
       when pattern == @plymio_codi_pattern_typespec_spec do
     with {:ok, cpo} <- cpo |> cpo_pattern_type_normalise,
          {:ok, type_result} <- cpo |> cpo_get_type_result do
-      # nothing to do?
       type_result
+      # nothing to do?
       |> is_value_unset
       |> case do
         true ->
@@ -74,7 +75,7 @@ defmodule Plymio.Codi.Pattern.Typespec.Spec do
                         unquote_splicing(type_result)
               end
 
-            with {:ok, cpo} <- cpo |> cpo_done_with_form(form) do
+            with {:ok, cpo} <- cpo |> cpo_done_with_edited_form(form) do
               {:ok, {cpo, state}}
             else
               {:error, %{__exception__: true}} = result -> result

@@ -36,7 +36,7 @@ defmodule Plymio.Codi.Utility.Module do
       validate_fun_module: 1
     ]
 
-  # import Plymio.Codi.Utility.GetSet
+  # import Plymio.Codi.CPO
 
   @type t :: %CODI{}
   @type error :: Plymio.Codi.error()
@@ -147,7 +147,7 @@ defmodule Plymio.Codi.Utility.Module do
           with {:ok, takes} <- takes |> List.wrap() |> validate_fun_names do
             (Enum.uniq(takes) -- fva_keys)
             |> case do
-              # no uknown funs
+              # no unknown funs
               [] ->
                 {:cont, fva |> Keyword.take(takes)}
 
@@ -162,7 +162,7 @@ defmodule Plymio.Codi.Utility.Module do
           with {:ok, drops} <- drops |> List.wrap() |> validate_fun_names do
             (Enum.uniq(drops) -- fva_keys)
             |> case do
-              # no uknown funs
+              # no unknown funs
               [] ->
                 {:cont, fva |> Keyword.drop(drops)}
 

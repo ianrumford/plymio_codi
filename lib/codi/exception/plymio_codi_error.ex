@@ -1,13 +1,13 @@
 defmodule Plymio.Codi.Error do
   @moduledoc false
 
-  require Plymio.Fontais.Vekil, as: VEKIL
-  use Plymio.Fontais.Attribute
+  require Plymio.Vekil.Utility, as: VEKILUTIL
+  use Plymio.Vekil.Attribute
 
   @codi_opts [
-    {@plymio_fontais_key_vekil, Plymio.Fontais.Codi.__vekil__()}
+    {@plymio_vekil_key_vekil, Plymio.Vekil.Codi.__vekil__()}
   ]
 
-  :def_error_complete
-  |> VEKIL.reify_proxies(@codi_opts)
+  :defexception_package
+  |> VEKILUTIL.reify_proxies(@codi_opts)
 end

@@ -7,6 +7,7 @@ defmodule Plymio.Codi.Pattern.Proxy do
 
   import Plymio.Fontais.Guard,
     only: [
+      is_value_set: 1,
       is_value_unset_or_nil: 1
     ]
 
@@ -20,11 +21,6 @@ defmodule Plymio.Codi.Pattern.Proxy do
       opts_create_aliases_dict: 1
     ]
 
-  import Plymio.Funcio.Enum.Map.Collate,
-    only: [
-      map_collate0_enum: 2
-    ]
-
   import Plymio.Codi.Utility,
     only: [
       opts_resolve_proxy_names: 1
@@ -32,55 +28,142 @@ defmodule Plymio.Codi.Pattern.Proxy do
 
   import Plymio.Fontais.Form,
     only: [
-      forms_normalise: 1
+      forms_edit: 2
     ]
 
-  import Plymio.Fontais.Form,
-    only: [
-      forms_edit: 2,
-      forms_normalise: 1
-    ]
-
-  import Plymio.Codi.Utility.GetSet,
+  import Plymio.Codi.CPO,
     only: [
       cpo_normalise: 2,
-      cpo_done_with_form: 2
+      cpo_done_with_edited_form: 2,
+      cpo_get_proxy_args: 1,
+      cpo_get_default: 1
     ]
 
-  @pattern_proxy_kvs_alias [
+  @pattern_proxy_fetch_kvs_alias [
     @plymio_codi_key_alias_pattern,
     @plymio_codi_key_alias_status,
     @plymio_codi_key_alias_form,
+    @plymio_codi_key_alias_state,
     @plymio_codi_key_alias_proxy_name,
-    @plymio_codi_key_alias_transform,
-    @plymio_codi_key_alias_postwalk
+    @plymio_codi_key_alias_forms_edit
   ]
 
-  @pattern_proxy_dict_alias @pattern_proxy_kvs_alias
-                            |> opts_create_aliases_dict
+  @pattern_proxy_fetch_dict_alias @pattern_proxy_fetch_kvs_alias
+                                  |> opts_create_aliases_dict
 
-  def cpo_pattern_proxy_normalise(cpo, dict \\ nil) do
-    cpo |> cpo_normalise(dict || @pattern_proxy_dict_alias)
+  def cpo_pattern_proxy_fetch_normalise(cpo, dict \\ nil) do
+    cpo |> cpo_normalise(dict || @pattern_proxy_fetch_dict_alias)
   end
 
-  def opts_dict_canonical_keys() do
-    @pattern_proxy_dict_alias
+  @pattern_proxy_put_kvs_alias [
+    @plymio_codi_key_alias_pattern,
+    @plymio_codi_key_alias_status,
+    @plymio_codi_key_alias_proxy_args
+  ]
+
+  @pattern_proxy_put_dict_alias @pattern_proxy_put_kvs_alias
+                                |> opts_create_aliases_dict
+
+  def cpo_pattern_proxy_put_normalise(cpo, dict \\ nil) do
+    cpo |> cpo_normalise(dict || @pattern_proxy_put_dict_alias)
+  end
+
+  @pattern_proxy_delete_kvs_alias [
+    @plymio_codi_key_alias_pattern,
+    @plymio_codi_key_alias_status,
+    @plymio_codi_key_alias_proxy_name
+  ]
+
+  @pattern_proxy_delete_dict_alias @pattern_proxy_delete_kvs_alias
+                                   |> opts_create_aliases_dict
+
+  def cpo_pattern_proxy_delete_normalise(cpo, dict \\ nil) do
+    cpo |> cpo_normalise(dict || @pattern_proxy_delete_dict_alias)
+  end
+
+  @pattern_proxy_get_kvs_alias [
+    @plymio_codi_key_alias_pattern,
+    @plymio_codi_key_alias_status,
+    @plymio_codi_key_alias_proxy_name,
+    @plymio_codi_key_alias_default,
+    @plymio_codi_key_alias_forms_edit
+  ]
+
+  @pattern_proxy_get_dict_alias @pattern_proxy_get_kvs_alias
+                                |> opts_create_aliases_dict
+
+  def cpo_pattern_proxy_get_normalise(cpo, dict \\ nil) do
+    cpo |> cpo_normalise(dict || @pattern_proxy_get_dict_alias)
   end
 
   def express_pattern(codi, pattern, opts)
 
-  def express_pattern(%CODI{@plymio_codi_field_vekil => vekil_dict}, pattern, _cpo)
-      when pattern == @plymio_codi_pattern_proxy and is_value_unset_or_nil(vekil_dict) do
+  def express_pattern(%CODI{@plymio_codi_field_vekil => vekil}, pattern, _cpo)
+      when pattern == @plymio_codi_pattern_proxy_fetch and is_value_unset_or_nil(vekil) do
     new_error_result(m: "vekil missing")
   end
 
-  def express_pattern(%CODI{@plymio_codi_field_vekil => vekil_dict} = state, pattern, cpo)
-      when pattern == @plymio_codi_pattern_proxy do
-    with {:ok, cpo} <- cpo |> cpo_pattern_proxy_normalise,
+  def express_pattern(%CODI{@plymio_codi_field_vekil => vekil} = state, pattern, cpo)
+      when pattern == @plymio_codi_pattern_proxy_fetch do
+    with {:ok, cpo} <- cpo |> cpo_pattern_proxy_fetch_normalise,
          {:ok, proxy_names} <- cpo |> opts_resolve_proxy_names,
-         {:ok, forms} <- vekil_dict |> resolve_vekil_proxies(proxy_names),
+         {:ok, forms} <- vekil |> realise_proxy_fetch_forom(proxy_names),
          {:ok, forms} <- forms |> forms_edit(cpo),
-         {:ok, cpo} <- cpo |> cpo_done_with_form(forms) do
+         {:ok, cpo} <- cpo |> cpo_done_with_edited_form(forms) do
+      {:ok, {cpo, state}}
+    else
+      {:error, %{__exception__: true}} = result -> result
+    end
+  end
+
+  def express_pattern(%CODI{@plymio_codi_field_vekil => vekil} = state, pattern, cpo)
+      when pattern == @plymio_codi_pattern_proxy_put and is_value_unset_or_nil(vekil) do
+    with {:ok, %Plymio.Vekil.Form{} = vekil} <- Plymio.Vekil.Form.new(),
+         {:ok, %CODI{} = state} <- state |> CODI.update_vekil(vekil),
+         {:ok, _} = result <- state |> express_pattern(pattern, cpo) do
+      result
+    else
+      {:error, %{__exception__: true}} = result -> result
+    end
+  end
+
+  def express_pattern(%CODI{@plymio_codi_field_vekil => vekil} = state, pattern, cpo)
+      when pattern == @plymio_codi_pattern_proxy_put do
+    with {:ok, cpo} <- cpo |> cpo_pattern_proxy_put_normalise,
+         {:ok, proxy_args} <- cpo |> cpo_get_proxy_args,
+         {:ok, vekil} <- vekil |> Plymio.Vekil.proxy_put(proxy_args),
+         {:ok, %CODI{} = state} <- state |> CODI.update_vekil(vekil) do
+      {:ok, {[], state}}
+    else
+      {:error, %{__exception__: true}} = result -> result
+    end
+  end
+
+  def express_pattern(%CODI{@plymio_codi_field_vekil => vekil} = state, pattern, _cpo)
+      when pattern == @plymio_codi_pattern_proxy_delete and is_value_unset_or_nil(vekil) do
+    {:ok, {[], state}}
+  end
+
+  def express_pattern(%CODI{@plymio_codi_field_vekil => vekil} = state, pattern, cpo)
+      when pattern == @plymio_codi_pattern_proxy_delete do
+    with {:ok, cpo} <- cpo |> cpo_pattern_proxy_delete_normalise,
+         {:ok, proxy_names} <- cpo |> opts_resolve_proxy_names,
+         {:ok, vekil} <- vekil |> Plymio.Vekil.proxy_delete(proxy_names),
+         {:ok, %CODI{} = state} <- state |> CODI.update_vekil(vekil) do
+      {:ok, {[], state}}
+    else
+      {:error, %{__exception__: true}} = result -> result
+    end
+  end
+
+  def express_pattern(%CODI{@plymio_codi_field_vekil => vekil} = state, pattern, cpo)
+      when pattern == @plymio_codi_pattern_proxy_get do
+    with {:ok, cpo} <- cpo |> cpo_pattern_proxy_get_normalise,
+         {:ok, proxy_names} <- cpo |> opts_resolve_proxy_names,
+         {:ok, default} <- cpo |> cpo_get_default,
+         {:ok, forms} <- vekil |> realise_proxy_get_forom(proxy_names, default),
+         {:ok, forms} <- forms |> forms_edit(cpo),
+         {:ok, cpo} <- cpo |> cpo_done_with_edited_form(forms) do
       {:ok, {cpo, state}}
     else
       {:error, %{__exception__: true}} = result -> result
@@ -91,64 +174,70 @@ defmodule Plymio.Codi.Pattern.Proxy do
     new_error_result(m: "proxy pattern #{inspect(pattern)} invalid", v: opts)
   end
 
-  # recurses
+  defp resolve_forom(vekil, forom)
 
-  defp resolve_vekil_proxy(vekil_dict, proxy_name, seen_proxies) do
-    vekil_dict
-    |> Map.fetch(proxy_name)
-    |> case do
-      {:ok, value} ->
-        value
-        |> List.wrap()
-        |> Enum.reduce_while([], fn
-          new_proxy, forms when is_atom(new_proxy) ->
-            # seen before i.e. looping?
-            seen_proxies
-            |> Map.has_key?(new_proxy)
-            |> case do
-              true ->
-                {:halt, new_error_result(m: "proxy seen before", v: new_proxy)}
+  defp resolve_forom(state, forom) do
+    cond do
+      Plymio.Vekil.Utility.forom?(forom) ->
+        {:ok, {forom, state}}
 
-              _ ->
-                seen_proxies = seen_proxies |> Map.put(new_proxy, nil)
+      Plymio.Vekil.Utility.vekil?(state) ->
+        state |> Plymio.Vekil.forom_normalise(forom)
 
-                with {:ok, new_forms} <-
-                       vekil_dict |> resolve_vekil_proxy(new_proxy, seen_proxies) do
-                  {:cont, [new_forms | forms]}
-                else
-                  {:error, %{__struct__: _}} = result -> {:halt, result}
-                end
-            end
-
-          # must be a form - will be validated later
-          form, forms ->
-            {:cont, [form | forms]}
-        end)
-        |> case do
-          {:error, %{__struct__: _}} = result ->
-            result
-
-          forms ->
-            {:ok, forms |> Enum.reverse()}
+      # default is a form forom
+      true ->
+        with {:ok, forom} <- forom |> Plymio.Vekil.Forom.Form.normalise() do
+          {:ok, {forom, state}}
+        else
+          {:error, %{__exception__: true}} = result -> result
         end
-
-      _ ->
-        new_error_result(m: "proxy not found", v: proxy_name)
     end
   end
 
-  defp resolve_vekil_proxies(vekil_dict, proxies) do
-    proxies
-    |> List.wrap()
-    |> map_collate0_enum(fn proxy_name ->
-      vekil_dict |> resolve_vekil_proxy(proxy_name, %{})
-    end)
-    |> case do
-      {:error, %{__struct__: _}} = result ->
-        result
+  defp realise_proxy_fetch_forom(state, proxies) do
+    with {:ok, state} <- state |> Plymio.Vekil.Utility.validate_vekil(),
+         {:ok, {forom, _}} <- state |> Plymio.Vekil.proxy_fetch(proxies),
+         {:ok, {forms, _}} <- forom |> Plymio.Vekil.Forom.realise() do
+      {:ok, forms}
+    else
+      {:error, %{__exception__: true}} = result -> result
+    end
+  end
 
-      {:ok, forms} ->
-        forms |> forms_normalise
+  defp realise_proxy_get_forom(vekil, proxies, default)
+
+  defp realise_proxy_get_forom(state, proxies, default) when is_value_set(state) do
+    with {:ok, state} <- state |> Plymio.Vekil.Utility.validate_vekil(),
+         {:ok, {forom, _}} <- state |> Plymio.Vekil.proxy_get(proxies, default),
+         {:ok, {forms, _}} <- forom |> Plymio.Vekil.Forom.realise() do
+      {:ok, forms}
+    else
+      {:error, %{__exception__: true}} = result -> result
+    end
+  end
+
+  defp realise_proxy_get_forom(state, proxies, default) when is_value_unset_or_nil(state) do
+    default
+    |> is_value_set
+    |> case do
+      true ->
+        with {:ok, {forom, _}} <- state |> resolve_forom(default) do
+          # need to return as many forom as proxies but as a list forom
+          defaults = List.duplicate(forom, proxies |> List.wrap() |> length)
+
+          with {:ok, forom} <- defaults |> Plymio.Vekil.Utility.forom_reduce(),
+               {:ok, {forms, _}} <- forom |> Plymio.Vekil.Forom.realise() do
+            {:ok, forms}
+          else
+            {:error, %{__exception__: true}} = result -> result
+          end
+        else
+          {:error, %{__exception__: true}} = result -> result
+        end
+
+      # no vekil and no default => return no forms
+      _ ->
+        {:ok, []}
     end
   end
 end

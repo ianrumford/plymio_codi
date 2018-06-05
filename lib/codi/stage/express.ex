@@ -1,14 +1,15 @@
 defmodule Plymio.Codi.Stage.Express do
   @moduledoc false
 
-  require Plymio.Fontais.Vekil, as: PFM
+  require Plymio.Vekil.Utility, as: VEKILUTIL
   alias Plymio.Codi, as: CODI
 
   use Plymio.Fontais.Attribute
+  use Plymio.Vekil.Attribute
   use Plymio.Codi.Attribute
 
   @codi_opts [
-    {@plymio_fontais_key_vekil, Plymio.Fontais.Codi.__vekil__()}
+    {@plymio_vekil_key_vekil, Plymio.Vekil.Codi.__vekil__()}
   ]
 
   @type t :: %CODI{}
@@ -20,7 +21,7 @@ defmodule Plymio.Codi.Stage.Express do
       new_error_result: 1
     ]
 
-  import Plymio.Codi.Utility.GetSet
+  import Plymio.Codi.CPO
 
   def pattern_express_item(codi, item)
 
@@ -41,7 +42,15 @@ defmodule Plymio.Codi.Stage.Express do
           |> Map.fetch(pattern)
           |> case do
             {:ok, dispatch_fun} ->
-              state |> dispatch_fun.(pattern, cpo)
+              # if the cpo has a state use it to express
+              with {:ok, %CODI{} = cpo_state} <- cpo |> cpo_get_state(state),
+                   {:ok, {cpo, %CODI{} = cpo_state}} <-
+                     cpo_state
+                     |> dispatch_fun.(pattern, cpo) do
+                {:ok, {cpo, cpo_state}}
+              else
+                {:error, %{__exception__: true}} = result -> result
+              end
 
             _ ->
               new_error_result(m: "pattern express dispatcher missing", v: pattern)
@@ -53,10 +62,10 @@ defmodule Plymio.Codi.Stage.Express do
   end
 
   [
-    :def_produce_stage_worker_t_is_mccp0e_ozi_t,
-    :def_produce_stage_field_items
+    :workflow_def_produce_stage_worker_t_is_mccp0e_ozi_t,
+    :workflow_def_produce_stage_field_items
   ]
-  |> PFM.reify_proxies(
+  |> VEKILUTIL.reify_proxies(
     @codi_opts ++
       [
         {@plymio_fontais_key_postwalk,
