@@ -2,9 +2,11 @@ defmodule Plymio.Codi do
   @moduledoc ~S"""
   `Plymio.Codi` generates *quoted forms* for common code *patterns*.
 
-  The `produce_codi/2` function produce the *quoted forms* for the
-  *patterns*. The `reify_codi/2` macro calls `produce_codi/2` and then
-  compiles the forms.
+  The `produce_codi/2` function produces the *quoted forms* for the
+  *patterns*.
+
+  The `reify_codi/2` macro calls `produce_codi/2` and then compiles
+  the forms.
 
   ## Documentation Terms
 
@@ -109,886 +111,96 @@ defmodule Plymio.Codi do
   | `:delegate_module` |  |
   | `:bang` |  |
   | `:bang_module` |  |
+  | `:query` |  |
+  | `:query_module` |  |
   | `:proxy_fetch` | *:proxy, :proxies, :proxies_fetch* |
   | `:proxy_put` | *:proxies_put* |
   | `:proxy_delete` | *:proxies_delete* |
   | `:proxy_get` | *:proxies_get* |
+  | `:struct_get` | |
+  | `:struct_fetch` | |
+  | `:struct_put` | |
+  | `:struct_maybe_put` | |
+  | `:struct_has?` | |
+  | `:struct_update` | |
+  | `:struct_set` | |
+  | `:struct_export` | |
 
   ### Pattern: *form*
 
   The *form* pattern is a convenience to embed arbitrary code.
 
-  Valid keys in the *cpo* are:
-
-  | Key | Aliases |
-  | :---  | :--- |
-  | `:form` | *:forms, :ast, :asts* |
-
-  A simple example with four functions:
-
-      iex> {:ok, {forms, _}} = [
-      ...>    form: quote(do: def(add_1(x), do: x + 1)),
-      ...>    ast: quote(do: def(sqr_x(x), do: x * x)),
-      ...>    forms: [
-      ...>       quote(do: def(sub_1(x), do: x - 1)),
-      ...>       quote(do: def(sub_2(x), do: x - 2)),
-      ...>      ]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["def(add_1(x)) do\n x + 1\n end",
-       "def(sqr_x(x)) do\n x * x\n end",
-       "def(sub_1(x)) do\n x - 1\n end",
-       "def(sub_2(x)) do\n x - 2\n end"]
-
-  Here the subtraction functions are renamed:
-
-      iex> {:ok, {forms, _}} = [
-      ...>    form: quote(do: def(add_1(x), do: x + 1)),
-      ...>    ast: quote(do: def(sqr_x(x), do: x * x)),
-      ...>    forms: [
-      ...>      forms: [quote(do: def(sub_1(x), do: x - 1)),
-      ...>             quote(do: def(sub_2(x), do: x - 2))],
-      ...>      forms_edit: [rename_funs: [sub_1: :decr_1, sub_2: :take_away_2]]]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["def(add_1(x)) do\n x + 1\n end",
-       "def(sqr_x(x)) do\n x * x\n end",
-       "def(decr_1(x)) do\n x - 1\n end",
-       "def(take_away_2(x)) do\n x - 2\n end"]
-
-  In this example the edits are "global" and applied to *all* produced forms:
-
-      iex> forms_edit = [rename_funs: [
-      ...>  sub_1: :decr_1,
-      ...>  sub_2: :take_away_2,
-      ...>  add_1: :incr_1,
-      ...>  sqr_x: :power_2]
-      ...> ]
-      ...> {:ok, {forms, _}} = [
-      ...>    form: quote(do: def(add_1(x), do: x + 1)),
-      ...>    ast: quote(do: def(sqr_x(x), do: x * x)),
-      ...>    forms: [quote(do: def(sub_1(x), do: x - 1)),
-      ...>            quote(do: def(sub_2(x), do: x - 2))],
-      ...> ] |> produce_codi(forms_edit: forms_edit)
-      ...> forms |> harnais_helper_show_forms!
-      ["def(incr_1(x)) do\n x + 1\n end",
-       "def(power_2(x)) do\n x * x\n end",
-       "def(decr_1(x)) do\n x - 1\n end",
-       "def(take_away_2(x)) do\n x - 2\n end"]
+  See `Plymio.Codi.Pattern.Other` for details and examples.
 
   ### Pattern: *typespec_spec*
 
-  The *typespec_spec* pattern builds a `@spec` form.
+  The *typespec_spec* pattern builds a `@spec` module attribute form.
 
-  Valid keys in the pattern opts are:
-
-  | Key | Aliases |
-  | :---       | :---            |
-  | `:spec_name` | *:name :fun_name, :function_name* |
-  | `:spec_args` | *:args, :fun_args, :function_args* |
-  | `:spec_arity` | *:arity, :fun_arity, :function_arity* |
-  | `:spec_result` | *:result, :fun_result, :function_result* |
-
-  When an `:arity` is given, the `:spec_args` will all be `any`.
-
-      iex> {:ok, {forms, _}} = [
-      ...>   spec: [name: :fun1, arity: 1, result: :integer]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["@spec(fun1(any) :: integer)"]
-
-  The function's `args` can be given explicitly. Here a list of atoms
-  are given which will be normalised to the equivalent type var. Note also
-  the `:spec_result` is an explicit form.
-
-      iex> spec_result = quote(do: binary | atom)
-      iex> {:ok, {forms, _}} = [
-      ...>   spec: [spec_name: :fun2, args: [:atom, :integer], spec_result: spec_result]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["@spec(fun2(atom, integer) :: binary | atom)"]
+  See `Plymio.Codi.Pattern.Typespec` for details and examples.
 
   ### Pattern: *doc*
 
-  The *doc* pattern builds a `@doc` form.
+  The *doc* pattern builds a `@doc` module attribute form.
 
-  Valid keys in the *cpo* are:
-
-  | Key | Aliases |
-  | :---  | :--- |
-  | `:fun_name` | *:name, :spec_name, :fun_name, :function_name* |
-  | `:fun_args` | *:args, :spec_args, :fun_args, :function_args* |
-  | `:fun_arity` | *:arity, :spec_arity, :fun_arity, :function_arity* |
-  | `:fun_doc` | *:doc, :function_doc* |
-
-  If the `:fun_doc` is `false`, documentation is turned off as expected:
-
-      iex> {:ok, {forms, _}} = [
-      ...>   doc: [doc: false]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["@doc(false)"]
-
-  The simplest `:fun_doc` is a string:
-
-      iex> {:ok, {forms, _}} = [
-      ...>   doc: [doc: "This is the docstring for fun1"]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["@doc(\"This is the docstring for fun1\")"]
-
-  For convenience, the `:fun_doc` can be `:bang` to generate a
-  suitable docstring for a bang function. For this, the *cpo* must include the
-  `:fun_name`, `:fun_args` or `:fun_arity`, and (optionally)
-  `:fun_module`.
-
-      iex> {:ok, {forms, _}} = [
-      ...>   doc: [name: :fun_one, arity: 1, doc: :bang]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["@doc(\"Bang function for `fun_one/1`\")"]
-
-      iex> {:ok, {forms, _}} = [
-      ...>   doc: [name: :fun_due, arity: 2, module: ModuleA, doc: :bang]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["@doc(\"Bang function for `ModuleA.fun_due/2`\")"]
-
-  Similarly, `:fun_doc` can be `:delegate` to generate a suitable
-  docstring for a delegation.
-
-      iex> {:ok, {forms, _}} = [
-      ...>   doc: [name: :fun_due, arity: 2, doc: :delegate]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["@doc(\"Delegated to `fun_due/2`\")"]
-
-      iex> {:ok, {forms, _}} = [
-      ...>   doc: [name: :fun_due, arity: 2, module: ModuleA, doc: :delegate]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["@doc(\"Delegated to `ModuleA.fun_due/2`\")"]
+  See `Plymio.Codi.Pattern.Doc` for details and examples.
 
   ### Pattern: *since*
 
-  The *since* pattern builds a `@since` form.
+  The *since* pattern builds a `@since` module attribute form.
 
-  Valid keys in the *cpo* are:
+  See `Plymio.Codi.Pattern.Other` for details and examples.
 
-  | Key | Aliases |
-  | :---  | :--- |
-  | `:since` | |
+  ### Pattern: *deprecated*
 
-  The value must be a string and is validated by `Version.parse/1`:
+  The *deprecated* pattern builds a `@deprecated` module attribute form.
 
-      iex> {:ok, {forms, _}} = [
-      ...>   since: "1.7.9"
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["@since(\"1.7.9\")"]
+  See `Plymio.Codi.Pattern.Other` for details and examples.
 
-      iex> {:error, error} = [
-      ...>   since: "1.2.3.4.5"
-      ...> ] |> produce_codi
-      ...> error |> Exception.message
-      "since invalid, got: 1.2.3.4.5"
-
-  ### Pattern: *delegate*
+  ### Pattern: *delegate* and *delegate_module*
 
   The *delegate* pattern builds a `Kernel.defdelegate/2` call,
   together, optionally, with a `@doc`, `@since`, and/or `@spec`.
-
-  Note the delegated mfa: `{module, function, arity}` is validated
-  i.e. the `function` must exist in the `module` with the given
-  `arity`.
-
-  If `:delegate_doc` is not in the pattern opts, a default of
-  `:delegate` is used.  (It can be disabled by explicily setting
-  `:fun_doc` to `nil` - **not** `false`).
-
-  Either `:fun_arity` or `:fun_args` is required.  If the former, the
-  arguments in the delegate will be e.g. `var`.  If the `:fun_args` is
-  given they will be used.
-
-  Valid keys in the *cpo* are:
-
-  | Key | Aliases |
-  | :---  | :--- |
-  | `:delegate_module` | *:to, :module, :fun_mod, :fun_module, :function_module* |
-  | `:delegate_name` | *:as* |
-  | `:delegate_doc` | *:doc, :fun_doc, :function_doc* |
-  | `:delegate_args` | *:args, :fun_args, :function_args* |
-  | `:delegate_arity` | *:arity, :fun_arity, :function_arity* |
-  | `:fun_name` | *:name, :function_name* |
-  | `:spec_args` | |
-  | `:spec_result` |*:result, :fun_result, :function_result* |
-  | `:since` | |
-
-  ## Examples
-
-  A simple case. Note the automatically generated `:delegate`-format `@doc`.
-
-      iex> {:ok, {forms, _}} = [
-      ...>   delegate: [name: :fun_one, arity: 1, module: ModuleA],
-      ...>   delegate: [name: :fun_due, arity: 2, module: ModuleA],
-      ...>   delegate: [name: :fun_tre, arity: 3, module: ModuleA]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["@doc \"Delegated to `ModuleA.fun_one/1`\"",
-       "defdelegate(fun_one(var1), to: ModuleA)",
-       "@doc \"Delegated to `ModuleA.fun_due/2`\"",
-       "defdelegate(fun_due(var1, var2), to: ModuleA)",
-       "@doc \"Delegated to `ModuleA.fun_tre/3`\"",
-       "defdelegate(fun_tre(var1, var2, var3), to: ModuleA)"]
-
-  Here showing the auto-generated `@doc` disabled.
-
-      iex> {:ok, {forms, _}} = [
-      ...>   delegate: [name: :fun_one, arity: 1, module: ModuleA, doc: nil],
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["defdelegate(fun_one(var1), to: ModuleA)"]
-
-  This example shows explicit function arguments (`:args`) being given:
-
-      iex> {:ok, {forms, _}} = [
-      ...>   delegate: [name: :fun_one, args: :opts, module: ModuleA, doc: nil],
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["defdelegate(fun_one(opts), to: ModuleA)"]
-
-  Delegating to a different function name (`:as`):
-
-      iex> {:ok, {forms, _}} = [
-      ...>   delegate: [name: :fun_3, as: :fun_tre, args: [:opts, :key, :value], module: ModuleA, doc: nil],
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["defdelegate(fun_3(opts, key, value), to: ModuleA, as: :fun_tre)"]
-
-  Here a `@doc`, `@since`, and `@spec` are generated.  Note in the first
-  example the `:spec_args` are explicily given as well as the
-  `:spec_result`.  In the second no `:spec_args` are given and the
-  arity used.
-
-      iex> {:ok, {forms, _}} = [
-      ...>   delegate: [name: :fun_one, arity: 1, module: ModuleA,
-      ...>   since: "1.7.9", spec_args: :integer, spec_result: :tuple],
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["@doc \"Delegated to `ModuleA.fun_one/1`\"",
-       "@since \"1.7.9\"",
-       "@spec fun_one(integer) :: tuple",
-       "defdelegate(fun_one(var1), to: ModuleA)"]
-
-      iex> {:ok, {forms, _}} = [
-      ...>   delegate: [name: :fun_one, arity: 1, module: ModuleA,
-      ...>   since: "1.7.9", spec_result: :tuple],
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["@doc \"Delegated to `ModuleA.fun_one/1`\"",
-       "@since \"1.7.9\"",
-       "@spec fun_one(any) :: tuple",
-       "defdelegate(fun_one(var1), to: ModuleA)"]
-
-  Showing validation of the `mfa`:
-
-      iex> {:error, error} = [
-      ...>   delegate: [name: :fun_one, arity: 2, module: ModuleZ],
-      ...> ] |> produce_codi
-      ...> error |> Exception.message
-      "mfa {ModuleZ, :fun_one, 2} module unknown"
-
-      iex> {:error, error} = [
-      ...>   delegate: [name: :fun_1, arity: 2, module: ModuleA],
-      ...> ] |> produce_codi
-      ...> error |> Exception.message
-      "mfa {ModuleA, :fun_1, 2} function unknown"
-
-      iex> {:error, error} = [
-      ...>   delegate: [name: :fun_one, arity: 2, module: ModuleA],
-      ...> ] |> produce_codi
-      ...> error |> Exception.message
-      "mfa {ModuleA, :fun_one, 2} arity unknown"
-
-  ### Pattern: *delegate_module*
 
   The *delegate_module* pattern builds a `Kernel.defdelegate/2` call
   for one or more functions in a module. As with `:delegate` a `@doc` and/or `@since`
   can be generated at the same time.
 
-  Valid keys in the *cpo* are:
+  See `Plymio.Codi.Pattern.Delegate` for details and examples.
 
-  | Key | Aliases |
-  | :---  | :--- |
-  | `:delegate_module` | *:to :module, :fun_module, :fun_mod, :function_module* |
-  | `:delegate_doc` | *:doc, :fun_doc, :function_doc* |
-  | `:take` |  |
-  | `:drop` |  |
-  | `:filter` |  |
-  | `:reject` |  |
-  | `:since` | |
+  ### Pattern: *bang* and *bang_module*
 
-  To determine which functions to delegate, the "function v arity"
-  (*fva*) for the module is first obtained by calling e.g. `ModuleA.__info__(:functions)`.
-
-  The *delegate options* can include `:take`, `:drop`, `:filter` or
-  `:reject` keys to "edit" the *fva*..
-
-  The first two take zero, one or more function names
-  and are used in a call to e.g. `Keyword.take/2` with the *fva*.
-
-  The second two keys require an arity 1 function (predicate) passed a
-  `{fun,arity}` tuple, returning `true` or `false` and is used with e.g. `Enum.filter/2`.
-
-  > Note the fva edits are applied in order of occurence so `:take`-ing a function already `:reject`-ed will do nothing.
-
-  Here all functions in the module (`ModuleA`) are wanted with auto-generated `@doc` and `@since`:
-
-      iex> {:ok, {forms, _}} = [
-      ...>   delegate_module: [module: ModuleA, since: "1.7.9"],
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["@doc \"Delegated to `ModuleA.fun_due/2`\"",
-       "@since \"1.7.9\"",
-       "defdelegate(fun_due(var1, var2), to: ModuleA)",
-       "@doc \"Delegated to `ModuleA.fun_one/1`\"",
-       "@since \"1.7.9\"",
-       "defdelegate(fun_one(var1), to: ModuleA)",
-       "@doc \"Delegated to `ModuleA.fun_tre/3`\"",
-       "@since \"1.7.9\"",
-       "defdelegate(fun_tre(var1, var2, var3), to: ModuleA)"]
-
-  Here arity 2 funs are selected, and `@doc` is disabled.
-
-      iex> {:ok, {forms, _}} = [
-      ...>   delegate_module: [
-      ...>     module: ModuleA, doc: nil,
-      ...>     filter: fn {_fun,arity} -> arity == 3 end],
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["defdelegate(fun_tre(var1, var2, var3), to: ModuleA)"]
-
-  ### Pattern: *bang*
-  The *bang* pattern builds a bang function, together, optionally, with a `@doc`, `@since` and/or `@spec`.
-
-  The bang function assumes the non-bang function returns either
-  `{:ok, value}` or `{:error, error}`, returning `value` or raising
-  `error`.
-
-  Note if the real function is in another module, the real mfa `{module, function, arity}` is validated i.e. the `function` must exist in the `module` with the given `arity`.
-
-  If `:fun_doc` is not in the pattern opts, a default of `:bang` is used.
-  (It can be disabled by explicitly setting `:fun_doc` to `nil`)
-
-  Valid keys in the *cpo* are:
-
-  | Key | Aliases |
-  | :---  | :--- |
-  | `:bang_module` | *:module, :fun_mod, :bang_module, :function_module* |
-  | `:bang_name` | *:name, :fun_name, :function_name* |
-  | `:bang_args` | *:args, :fun_args, :function_args* |
-  | `:bang_arity` | *:arity, :fun_arity, :function_arity* |
-  | `:bang_doc` | *:doc, :fun_doc, :function_doc* |
-  | `:spec_args` | |
-  | `:spec_result` |*:result, :fun_result, :function_result* |
-  | `:since` | |
-
-  Here is the common case of a bang function for a function in the
-  same module. Note the automatically generated `:bang`-format `@doc`
-  and explicitly specified `@since`:
-
-      iex> {:ok, {forms, _}} = [
-      ...>   bang: [as: :fun_tre, arity: 3, since: "1.7.9"]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["@doc \"Bang function for `fun_tre/3`\"",
-       "@since \"1.7.9\"",
-       "def(fun_tre!(var1, var2, var3)) do",
-       "  case(fun_tre(var1, var2, var3)) do",
-       "    {:ok, value} ->",
-       "      value",
-       "",
-       "    {:error, error} ->",
-       "      raise(error)",
-       "  end",
-       "end"]
-
-  Here the other function is in a different module(`ModuleA`):
-
-      iex> {:ok, {forms, _}} = [
-      ...>   bang: [as: :fun_tre, arity: 3, to: ModuleA, since: "1.7.9"]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["@doc \"Bang function for `ModuleA.fun_tre/3`\"",
-       "@since \"1.7.9\"",
-       "def(fun_tre!(var1, var2, var3)) do",
-       "  case(ModuleA.fun_tre(var1, var2, var3)) do",
-       "    {:ok, value} ->",
-       "      value",
-       "",
-       "    {:error, error} ->",
-       "      raise(error)",
-       "  end",
-       "end"]
-
-  The `:fun_args` can be supplied to improve the definition. Note the `:fun_doc` is set to `false`.
-
-      iex> {:ok, {forms, _}} = [
-      ...>   bang: [as: :fun_tre, args: [:x, :y, :z], to: ModuleA, fun_doc: false]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["@doc false", "def(fun_tre!(x, y, z)) do",
-       "  case(ModuleA.fun_tre(x, y, z)) do",
-       "    {:ok, value} ->",
-       "      value",
-       "",
-       "    {:error, error} ->",
-       "      raise(error)",
-       "  end",
-       "end"]
-
-  Similary, if the *cpo* contains a `:spec_result` key, a `@spec` will
-  be generated. The second example has an explicit `:spec_args`
-
-      iex> {:ok, {forms, _}} = [
-      ...>   bang: [as: :fun_tre, args: [:x, :y, :z], module: ModuleA, result: :tuple]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["@doc \"Bang function for `ModuleA.fun_tre/3`\"",
-       "@spec fun_tre!(any, any, any) :: tuple",
-       "def(fun_tre!(x, y, z)) do",
-       "  case(ModuleA.fun_tre(x, y, z)) do",
-       "    {:ok, value} ->",
-       "      value",
-       "",
-       "    {:error, error} ->",
-       "      raise(error)",
-       "  end",
-       "end"]
-
-      iex> {:ok, {forms, _}} = [
-      ...>   bang: [as: :fun_tre, args: [:x, :y, :z], module: ModuleA,
-      ...>          spec_args: [:integer, :binary, :atom], result: :tuple]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["@doc \"Bang function for `ModuleA.fun_tre/3`\"",
-       "@spec fun_tre!(integer, binary, atom) :: tuple",
-       "def(fun_tre!(x, y, z)) do",
-       "  case(ModuleA.fun_tre(x, y, z)) do",
-       "    {:ok, value} ->",
-       "      value",
-       "",
-       "    {:error, error} ->",
-       "      raise(error)",
-       "  end",
-       "end"]
-
-  ### Pattern: *bang_module*
+  The *bang* pattern builds bang functions
+  (e.g. `myfun!(arg)`) using existing base functions (e.g. `myfun(arg)`).
 
   The *bang_module* pattern builds a bang function for one or more
   functions in a module. As with `:bang` a `@doc` or `@since` can be generated at
   the same time.
 
-  Valid keys in the *cpo* are:
+  See `Plymio.Codi.Pattern.Bang` for details and examples.
 
-  | Key | Aliases |
-  | :---  | :--- |
-  | `:bang_module` | *:to, :module, :fun_mod, :fun_module, :function_module* |
-  | `:bang_doc` | *:doc, :fun_doc, :function_doc* |
-  | `:take` |  |
-  | `:drop` |  |
-  | `:filter` |  |
-  | `:reject` |  |
-  | `:since` | |
+  ### Pattern: *query* and *query_module*
 
-  Here a bang function will be generated for all the functions in the module.
+  The *query* pattern works like *bang* but builds a query function
+  (e.g. `myfun?(arg)`) using a base function (e.g. `myfun(arg)`).
 
-      iex> {:ok, {forms, _}} = [
-      ...>   bang_module: [module: ModuleA],
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["@doc \"Bang function for `ModuleA.fun_due/2`\"",
-       "def(fun_due!(var1, var2)) do",
-       "  case(ModuleA.fun_due(var1, var2)) do",
-       "    {:ok, value} ->",
-       "      value",
-       "",
-       "    {:error, error} ->",
-       "      raise(error)",
-       "  end",
-       "end",
-       "@doc \"Bang function for `ModuleA.fun_one/1`\"",
-       "def(fun_one!(var1)) do", "  case(ModuleA.fun_one(var1)) do",
-       "    {:ok, value} ->",
-       "      value",
-       "",
-       "    {:error, error} ->",
-       "      raise(error)",
-       "  end",
-       "end",
-       "@doc \"Bang function for `ModuleA.fun_tre/3`\"",
-       "def(fun_tre!(var1, var2, var3)) do",
-       "  case(ModuleA.fun_tre(var1, var2, var3)) do",
-       "    {:ok, value} ->",
-       "      value",
-       "",
-       "    {:error, error} ->",
-       "      raise(error)",
-       "  end",
-       "end"]
+  The *query_module* pattern builds a query function for one or more
+  functions in a module. As with `:query` a `@doc` or `@since` can be generated at
+  the same time.
 
-  In the same way as `:delegate_module` the functions can be selected
-  using e.g. `:take`. Here `:since` is also given.
+  See `Plymio.Codi.Pattern.Query` for details and examples.
 
-      iex> {:ok, {forms, _}} = [
-      ...>   bang_module: [module: ModuleA, take: :fun_due, since: "1.7.9"],
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_format_forms!
-      ["@doc \"Bang function for `ModuleA.fun_due/2`\"",
-       "@since \"1.7.9\"",
-       "def(fun_due!(var1, var2)) do",
-       "  case(ModuleA.fun_due(var1, var2)) do",
-       "    {:ok, value} ->",
-       "      value",
-       "",
-       "    {:error, error} ->",
-       "      raise(error)",
-       "  end",
-       "end"]
+  ### Pattern: *proxy* patterns
 
-  ### Pattern: *proxy_fetch*
+  The *proxy* patterns manage the *vekil*..
 
-  The *proxy_fetch* pattern fetches the *forom* of one or more *proxies* in the
-  *vekil*.
+  See `Plymio.Codi.Pattern.Proxy` for details and examples.
 
-  *proxy_fetch* maps directly to a `Plymio.Vekil.proxy_fetch/2` call on
-  the *vekil*; all of the  *proxies* must exist else an error result will be
-  returned.
+  ### Pattern: *struct* patterns
 
-  Valid keys in the *cpo* are:
+  The *struct* patterns create a range of transform functions for a module's struct.
 
-  | Key | Aliases |
-  | :---  | :--- |
-  | `:proxy_name` | *:proxy_names, :proxy, :proxies* |
+  See `Plymio.Codi.Pattern.Struct` for details and examples.
 
-  A simple case fetching one *proxy*:
-
-      iex> vekil_dict = %{
-      ...>    add_1: quote(do: def(add_1(x), do: x + 1)),
-      ...> }
-      ...> {:ok, {forms, _}} = [
-      ...>   vekil: vekil_dict,
-      ...>   proxy: :add_1,
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["def(add_1(x)) do\n x + 1\n end"]
-
-  If the *proxy* is not found, or there is no *vekil*, an error result will be returned.
-
-      iex> vekil_dict = %{
-      ...>    add_1: quote(do: def(add_1(x), do: x + 1)),
-      ...> }
-      ...> {:error, error} = [
-      ...>   vekil: vekil_dict,
-      ...>   proxy: :add_11,
-      ...> ] |> produce_codi
-      ...> error |> Exception.message
-      "proxy invalid, got: :add_11"
-
-      iex> {:error, error} = [
-      ...>   proxy: :add_11,
-      ...> ] |> produce_codi
-      ...> error |> Exception.message
-      "vekil missing"
-
-      iex> vekil_dict = %{
-      ...>    # a map is not a valid form
-      ...>    add_1: %{a: 1},
-      ...> }
-      ...> {:error, error} = [
-      ...>   vekil: vekil_dict,
-      ...>   proxy: :add_1,
-      ...> ] |> produce_codi
-      ...> error |> Exception.message
-      "form invalid, got: %{a: 1}"
-
-  Multiple proxies can be given in a list:
-
-      iex> vekil_dict = %{
-      ...>    add_1: quote(do: def(add_1(x), do: x + 1)),
-      ...>    sqr_x: quote(do: def(sqr_x(x), do: x * x)),
-      ...>    sub_1: quote(do: def(sub_1(x), do: x - 1)),
-      ...> }
-      ...> {:ok, {forms, _}} = [
-      ...>   vekil: vekil_dict,
-      ...>   proxies: [:add_1, :sqr_x, :sub_1]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["def(add_1(x)) do\n x + 1\n end",
-       "def(sqr_x(x)) do\n x * x\n end",
-       "def(sub_1(x)) do\n x - 1\n end"]
-
-  A *proxy* can be a list of other proxies:
-
-      iex> vekil_dict = %{
-      ...>    add_1: quote(do: def(add_1(x), do: x + 1)),
-      ...>    sqr_x: quote(do: def(sqr_x(x), do: x * x)),
-      ...>    sub_1: quote(do: def(sub_1(x), do: x - 1)),
-      ...>    all: [:add_1, :sqr_x, :sub_1],
-      ...> }
-      ...> {:ok, {forms, _}} = [
-      ...>   vekil: vekil_dict,
-      ...>   proxy: :all
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["def(add_1(x)) do\n x + 1\n end",
-       "def(sqr_x(x)) do\n x * x\n end",
-       "def(sub_1(x)) do\n x - 1\n end"]
-
-  When the *proxy* is a list of proxies, infinite loops are caught:
-
-      iex> vekil_dict = %{
-      ...>    add_1: quote(do: def(add_1(x), do: x + 1)),
-      ...>    sqr_x: quote(do: def(sqr_x(x), do: x * x)),
-      ...>    sub_1: quote(do: def(sub_1(x), do: x - 1)),
-      ...>    all_loop: [:add_1, :sqr_x, :sub_1, :all_loop],
-      ...> }
-      ...> {:error, error} = [
-      ...>   vekil: vekil_dict,
-      ...>   proxy: :all_loop
-      ...> ] |> produce_codi
-      ...> error |> Exception.message
-      "proxy seen before, got: :all_loop"
-
-  It is more efficient to pre-create (ideally at compile time) the *vekil*:
-
-      iex> vekil_dict = %{
-      ...>    add_1: quote(do: def(add_1(x), do: x + 1)),
-      ...>    sqr_x: quote(do: def(sqr_x(x), do: x * x)),
-      ...>    sub_1: quote(do: def(sub_1(x), do: x - 1)),
-      ...>    all: [:add_1, :sqr_x, :sub_1],
-      ...> }
-      ...> {:ok, %Plymio.Vekil.Form{} = vekil} = [dict: vekil_dict] |>
-      ...> Plymio.Vekil.Form.new
-      ...> {:ok, {forms, _}} = [
-      ...>   vekil: vekil,
-      ...>   proxy: :all
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["def(add_1(x)) do\n x + 1\n end",
-       "def(sqr_x(x)) do\n x * x\n end",
-       "def(sub_1(x)) do\n x - 1\n end"]
-
-  In this example a `:forms_edit` is given renaming all the `x` vars to `a` vars, changing "1" to "42" and
-  renaming the `add_` function to `incr_1`.
-
-  > renaming  the vars in this example doesn't change the logic
-
-      iex> postwalk_fun = fn
-      ...>   1 -> 42
-      ...>   x -> x
-      ...> end
-      ...> vekil_dict = %{
-      ...>    add_1: quote(do: def(add_1(x), do: x + 1)),
-      ...>    sqr_x: quote(do: def(sqr_x(x), do: x * x)),
-      ...>    sub_1: quote(do: def(sub_1(x), do: x - 1)),
-      ...>    all: [:add_1, :sqr_x, :sub_1],
-      ...> }
-      ...> {:ok, {forms, _}} = [
-      ...>   vekil: vekil_dict,
-      ...>   proxy: [proxy: :all, forms_edit: [
-      ...>     postwalk: postwalk_fun,
-      ...>     rename_vars: [x: :a],
-      ...>     rename_funs: [add_1: :incr_1]]]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["def(incr_1(a)) do\n a + 42\n end",
-       "def(sqr_x(a)) do\n a * a\n end",
-       "def(sub_1(a)) do\n a - 42\n end"]
-
-  ### Pattern: *proxy_put*
-
-  The *proxy_put* pattern puts one or more *proxies* and their *forom*, into the *vekil*.
-
-  *proxy_put* maps directly to a `Plymio.Vekil.proxy_put/2` call on
-  the *vekil*.
-
-  If the *vekil* does not exist, a new `Plymio.Vekil.Form` will be created.
-
-  Valid keys in the *cpo* are:
-
-  | Key | Aliases |
-  | :---  | :--- |
-  | `:proxy_args` | |
-
-  A simple case puting one *proxy* and then fetching it:
-
-      iex> {:ok, {forms, _}} = [
-      ...>   proxy_put: [add_1: quote(do: def(add_1(x), do: x + 1))],
-      ...>   proxy_fetch: :add_1
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["def(add_1(x)) do\n x + 1\n end"]
-
-  In this example the same *proxy* (`:add_1`) is fetched twice but the
-  *proxy* is updated between the two fetches.
-
-      iex> {:ok, {forms, _}} = [
-      ...>   proxy_put: [add_1: quote(do: x = x + 1)],
-      ...>   proxy_fetch: :add_1,
-      ...>   proxy_put: [add_1: quote(do: x = x + 40)],
-      ...>   proxy_fetch: :add_1
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_test_forms!(binding: [x: 1])
-      {42, ["x = x + 1", "x = x + 40"]}
-
-  Here an existing *proxy* (`:sqr_x`) is overriden. Note the
-  "composite" *proxy* `:all` is resolved as late as possible and finds the updated `:sqr_x`:
-
-      iex> vekil_dict = %{
-      ...>    add_1: quote(do: x = x + 1),
-      ...>    sqr_x: quote(do: x = x * x),
-      ...>    sub_1: quote(do: x = x - 1),
-      ...>    all: [:add_1, :sqr_x, :sub_1],
-      ...> }
-      ...> {:ok, %Plymio.Vekil.Form{} = vekil} = [dict: vekil_dict] |>
-      ...> Plymio.Vekil.Form.new
-      ...> {:ok, {forms, _}} = [
-      ...>   vekil: vekil,
-      ...>   # change the :sqr_x proxy to cube instead
-      ...>   proxy_put: [sqr_x: quote(do: x = x * x * x)],
-      ...>   proxy: :all
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_test_forms!(binding: [x: 7])
-      {511, ["x = x + 1", "x = x * x * x", "x = x - 1"]}
-
-  ### Pattern: *proxy_delete*
-
-  The *proxy_delete* pattern delete one or more *proxies* from the
-  *vekil*.  It can be used to change the behaviour of a subsequent `proxy_get` to use the `default`.
-
-  No *vekil* and / or any unknown *proxy* are ridden out without causing an error.
-
-  *proxy_delete* maps directly to a `Plymio.Vekil.proxy_delete/2` call on
-  the *vekil*.
-
-  Valid keys in the *cpo* are:
-
-  | Key | Aliases |
-  | :---  | :--- |
-  | `:proxy_name` | *:proxy_names, :proxy, :proxies* |
-
-  A simple case of deleting a *proxy* and then fetching it:
-
-      iex> vekil_dict = %{
-      ...>    add_1: quote(do: def(add_1(x), do: x + 1)),
-      ...> }
-      ...> {:error, error} = [
-      ...>   vekil: vekil_dict,
-      ...>   proxy_delete: :add_1,
-      ...>   proxy_fetch: :add_1
-      ...> ] |> produce_codi
-      ...> error |> Exception.message
-      "proxy invalid, got: :add_1"
-
-  No *vekil* and / or unknown *proxies* are ridden out without causing an error:
-
-      iex> {:ok, {[], codi}} = [
-      ...>   proxy_delete: :add_1,
-      ...>   proxy_delete: :does_not_matter
-      ...> ] |> produce_codi
-      ...> match?(%Plymio.Codi{}, codi)
-      true
-
-  ### Pattern: *proxy_get*
-
-  The *proxy_get* pattern gets one or more *proxies* from the
-  *vekil* but with an optional `default` to be returned (as a *forom*) if the *proxy* is not found.
-
-  *proxy_get* maps directly to a `Plymio.Vekil.proxy_get/2` or `Plymio.Vekil.proxy_get/3` call on
-
-  Valid keys in the *cpo* are:
-
-  | Key | Aliases |
-  | :---  | :--- |
-  | `:proxy_name` | *:proxy_names, :proxy, :proxies* |
-  | `:default` | |
-
-  Here the *proxy* exists in the *vekil*:
-
-      iex> vekil_dict = %{
-      ...>    add_1: quote(do: def(add_1(x), do: x + 1)),
-      ...> }
-      ...> {:ok, {forms, _}} = [
-      ...>   vekil: vekil_dict,
-      ...>   proxy_get: :add_1,
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["def(add_1(x)) do\n x + 1\n end"]
-
-  If the *proxy* does not exists, and there is no `default`, no forms are returned:
-
-      iex> vekil_dict = %{
-      ...>    add_1: quote(do: def(add_1(x), do: x + 1)),
-      ...> }
-      ...> {:ok, {forms, _}} = [
-      ...>   vekil: vekil_dict,
-      ...>   proxy_get: :add_2,
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      []
-
-  Here a default is provided. Note the `default` is automatically
-  normalised to a *forom* and then realised.
-
-      iex> vekil_dict = %{
-      ...>    add_1: quote(do: def(add_1(x), do: x + 1)),
-      ...> }
-      ...> {:ok, {forms, _}} = [
-      ...>   vekil: vekil_dict,
-      ...>   proxy_get: [proxy: :add_2, default: quote(do: def(add_42(x), do: x + 42))]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["def(add_42(x)) do\n x + 42\n end"]
-
-  The `default` can be another *proxy* in the *vekil*:
-
-      iex> vekil_dict = %{
-      ...>    add_1: quote(do: def(add_1(x), do: x + 1)),
-      ...>    add_42: quote(do: def(add_42(x), do: x + 42)),
-      ...> }
-      ...> {:ok, {forms, _}} = [
-      ...>   vekil: vekil_dict,
-      ...>   proxy_get: [proxy_name: :add_2, default: :add_42]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["def(add_42(x)) do\n x + 42\n end"]
-
-  If there is no *vekil* and no `default`, no forms are returned:
-
-      iex> {:ok, {forms, _}} = [
-      ...>   proxy_get: :add_2,
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      []
-
-  No *vekil* but a default works as expected:
-
-      iex> {:ok, {forms, _}} = [
-      ...>   proxy_get: [proxy: :add_2, default: quote(do: def(add_42(x), do: x + 42))]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_show_forms!
-      ["def(add_42(x)) do\n x + 42\n end"]
-
-  As many defaults as *proxies* are returned:
-
-      iex> {:ok, {forms, _}} = [
-      ...>   proxy_get: [
-      ...>    proxy: [:x_sub_1, :a_mul_x, :not_a_proxy, :some_other_thing],
-      ...>    default: quote(do: x = x + 1)]
-      ...> ] |> produce_codi
-      ...> forms |> harnais_helper_test_forms!(binding: [x: 1])
-      {5, ["x = x + 1", "x = x + 1", "x = x + 1", "x = x + 1"]}
   """
 
   require Plymio.Vekil.Utility, as: VEKILUTIL
@@ -1048,14 +260,23 @@ defmodule Plymio.Codi do
   @plymio_codi_pattern_dicts @plymio_fontais_the_unset_value
 
   @plymio_codi_pattern_normalisers %{
-    @plymio_codi_pattern_form => &Plymio.Codi.Pattern.Various.cpo_pattern_form_normalise/1,
+    @plymio_codi_pattern_form => &Plymio.Codi.Pattern.Other.cpo_pattern_form_normalise/1,
     @plymio_codi_pattern_doc => &Plymio.Codi.Pattern.Doc.cpo_pattern_doc_normalise/1,
-    @plymio_codi_pattern_since => &Plymio.Codi.Pattern.Various.cpo_pattern_since_normalise/1,
+    @plymio_codi_pattern_since => &Plymio.Codi.Pattern.Other.cpo_pattern_since_normalise/1,
+    @plymio_codi_pattern_deprecated =>
+      &Plymio.Codi.Pattern.Other.cpo_pattern_deprecated_normalise/1,
     @plymio_codi_pattern_typespec_spec =>
-      &Plymio.Codi.Pattern.Typespec.Spec.cpo_pattern_type_normalise/1,
+      &Plymio.Codi.Pattern.Typespec.cpo_pattern_typespec_spec_normalise/1,
     @plymio_codi_pattern_bang => &Plymio.Codi.Pattern.Bang.cpo_pattern_bang_normalise/1,
     @plymio_codi_pattern_bang_module =>
       &Plymio.Codi.Pattern.Bang.cpo_pattern_bang_module_normalise/1,
+    @plymio_codi_pattern_query => &Plymio.Codi.Pattern.Query.cpo_pattern_query_normalise/1,
+    @plymio_codi_pattern_query_module =>
+      &Plymio.Codi.Pattern.Query.cpo_pattern_query_module_normalise/1,
+    @plymio_codi_pattern_delegate =>
+      &Plymio.Codi.Pattern.Delegate.cpo_pattern_delegate_normalise/1,
+    @plymio_codi_pattern_delegate_module =>
+      &Plymio.Codi.Pattern.Delegate.cpo_pattern_delegate_module_normalise/1,
     @plymio_codi_pattern_proxy_fetch =>
       &Plymio.Codi.Pattern.Proxy.cpo_pattern_proxy_fetch_normalise/1,
     @plymio_codi_pattern_proxy_put =>
@@ -1064,25 +285,54 @@ defmodule Plymio.Codi do
       &Plymio.Codi.Pattern.Proxy.cpo_pattern_proxy_get_normalise/1,
     @plymio_codi_pattern_proxy_delete =>
       &Plymio.Codi.Pattern.Proxy.cpo_pattern_proxy_delete_normalise/1,
-    @plymio_codi_pattern_delegate =>
-      &Plymio.Codi.Pattern.Delegate.cpo_pattern_delegate_normalise/1,
-    @plymio_codi_pattern_delegate_module =>
-      &Plymio.Codi.Pattern.Delegate.cpo_pattern_delegate_module_normalise/1
+    @plymio_codi_pattern_struct_export =>
+      &Plymio.Codi.Pattern.Struct.cpo_pattern_struct_export_normalise/1,
+    @plymio_codi_pattern_struct_update =>
+      &Plymio.Codi.Pattern.Struct.cpo_pattern_struct_update_normalise/1,
+    @plymio_codi_pattern_struct_set =>
+      &Plymio.Codi.Pattern.Struct.cpo_pattern_struct_set_normalise/1,
+    @plymio_codi_pattern_struct_get =>
+      &Plymio.Codi.Pattern.Struct.cpo_pattern_struct_get_normalise/1,
+    @plymio_codi_pattern_struct_get1 =>
+      &Plymio.Codi.Pattern.Struct.cpo_pattern_struct_get_normalise/1,
+    @plymio_codi_pattern_struct_get2 =>
+      &Plymio.Codi.Pattern.Struct.cpo_pattern_struct_get_normalise/1,
+    @plymio_codi_pattern_struct_fetch =>
+      &Plymio.Codi.Pattern.Struct.cpo_pattern_struct_fetch_normalise/1,
+    @plymio_codi_pattern_struct_put =>
+      &Plymio.Codi.Pattern.Struct.cpo_pattern_struct_put_normalise/1,
+    @plymio_codi_pattern_struct_maybe_put =>
+      &Plymio.Codi.Pattern.Struct.cpo_pattern_struct_maybe_put_normalise/1,
+    @plymio_codi_pattern_struct_has? =>
+      &Plymio.Codi.Pattern.Struct.cpo_pattern_struct_has_normalise/1
   }
 
   @plymio_codi_pattern_express_dispatch %{
-    @plymio_codi_pattern_form => &Plymio.Codi.Pattern.Various.express_pattern/3,
+    @plymio_codi_pattern_form => &Plymio.Codi.Pattern.Other.express_pattern/3,
     @plymio_codi_pattern_doc => &Plymio.Codi.Pattern.Doc.express_pattern/3,
-    @plymio_codi_pattern_since => &Plymio.Codi.Pattern.Various.express_pattern/3,
-    @plymio_codi_pattern_typespec_spec => &Plymio.Codi.Pattern.Typespec.Spec.express_pattern/3,
+    @plymio_codi_pattern_since => &Plymio.Codi.Pattern.Other.express_pattern/3,
+    @plymio_codi_pattern_deprecated => &Plymio.Codi.Pattern.Other.express_pattern/3,
+    @plymio_codi_pattern_typespec_spec => &Plymio.Codi.Pattern.Typespec.express_pattern/3,
     @plymio_codi_pattern_bang => &Plymio.Codi.Pattern.Bang.express_pattern/3,
     @plymio_codi_pattern_bang_module => &Plymio.Codi.Pattern.Bang.express_pattern/3,
+    @plymio_codi_pattern_query => &Plymio.Codi.Pattern.Query.express_pattern/3,
+    @plymio_codi_pattern_query_module => &Plymio.Codi.Pattern.Query.express_pattern/3,
     @plymio_codi_pattern_delegate => &Plymio.Codi.Pattern.Delegate.express_pattern/3,
     @plymio_codi_pattern_delegate_module => &Plymio.Codi.Pattern.Delegate.express_pattern/3,
     @plymio_codi_pattern_proxy_fetch => &Plymio.Codi.Pattern.Proxy.express_pattern/3,
     @plymio_codi_pattern_proxy_put => &Plymio.Codi.Pattern.Proxy.express_pattern/3,
     @plymio_codi_pattern_proxy_get => &Plymio.Codi.Pattern.Proxy.express_pattern/3,
-    @plymio_codi_pattern_proxy_delete => &Plymio.Codi.Pattern.Proxy.express_pattern/3
+    @plymio_codi_pattern_proxy_delete => &Plymio.Codi.Pattern.Proxy.express_pattern/3,
+    @plymio_codi_pattern_struct_update => &Plymio.Codi.Pattern.Struct.express_pattern/3,
+    @plymio_codi_pattern_struct_export => &Plymio.Codi.Pattern.Struct.express_pattern/3,
+    @plymio_codi_pattern_struct_set => &Plymio.Codi.Pattern.Struct.express_pattern/3,
+    @plymio_codi_pattern_struct_get => &Plymio.Codi.Pattern.Struct.express_pattern/3,
+    @plymio_codi_pattern_struct_get1 => &Plymio.Codi.Pattern.Struct.express_pattern/3,
+    @plymio_codi_pattern_struct_get2 => &Plymio.Codi.Pattern.Struct.express_pattern/3,
+    @plymio_codi_pattern_struct_fetch => &Plymio.Codi.Pattern.Struct.express_pattern/3,
+    @plymio_codi_pattern_struct_put => &Plymio.Codi.Pattern.Struct.express_pattern/3,
+    @plymio_codi_pattern_struct_maybe_put => &Plymio.Codi.Pattern.Struct.express_pattern/3,
+    @plymio_codi_pattern_struct_has? => &Plymio.Codi.Pattern.Struct.express_pattern/3
   }
 
   @plymio_codi_stage_dispatch [
@@ -1111,14 +361,27 @@ defmodule Plymio.Codi do
     @plymio_codi_pattern_alias_doc,
     @plymio_codi_pattern_alias_typespec_spec,
     @plymio_codi_pattern_alias_since,
+    @plymio_codi_pattern_alias_deprecated,
     @plymio_codi_pattern_alias_bang,
     @plymio_codi_pattern_alias_bang_module,
+    @plymio_codi_pattern_alias_query,
+    @plymio_codi_pattern_alias_query_module,
     @plymio_codi_pattern_alias_delegate,
     @plymio_codi_pattern_alias_delegate_module,
     @plymio_codi_pattern_alias_proxy_fetch,
     @plymio_codi_pattern_alias_proxy_put,
     @plymio_codi_pattern_alias_proxy_get,
     @plymio_codi_pattern_alias_proxy_delete,
+    @plymio_codi_pattern_alias_struct_export,
+    @plymio_codi_pattern_alias_struct_update,
+    @plymio_codi_pattern_alias_struct_set,
+    @plymio_codi_pattern_alias_struct_get,
+    @plymio_codi_pattern_alias_struct_get1,
+    @plymio_codi_pattern_alias_struct_get2,
+    @plymio_codi_pattern_alias_struct_fetch,
+    @plymio_codi_pattern_alias_struct_put,
+    @plymio_codi_pattern_alias_struct_maybe_put,
+    @plymio_codi_pattern_alias_struct_has?,
     @plymio_codi_key_alias_pattern
   ]
 
@@ -1349,8 +612,7 @@ defmodule Plymio.Codi do
 
   def produce_codi(opts, new_opts) do
     with {:ok, %__MODULE__{} = state} <- new_opts |> new,
-         {:ok, _} = result <- opts |> produce_codi(state),
-         true <- true do
+         {:ok, _} = result <- opts |> produce_codi(state) do
       result
     else
       {:error, %{__exception__: true}} = result -> result
@@ -1406,6 +668,15 @@ defmodule Plymio.Codi do
          end}
       ]
   )
+
+  defmacro __using__(_opts \\ []) do
+    quote do
+      require Plymio.Codi, as: CODI
+      require Plymio.Fontais.Guard
+      use Plymio.Fontais.Attribute
+      use Plymio.Codi.Attribute
+    end
+  end
 end
 
 defimpl Inspect, for: Plymio.Codi do
@@ -1450,6 +721,7 @@ defimpl Inspect, for: Plymio.Codi do
           [
             "P=#{x |> length}/(",
             x
+            |> Stream.take(5)
             |> Stream.map(fn opts ->
               opts
               |> Keyword.new()

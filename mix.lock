@@ -5,5 +5,6 @@
   "harnais_helper": {:hex, :harnais_helper, "0.1.0", "9c4c22f45ea70a58297b88ebc93901ff45075f59747cebfce69707d006952624", [:mix], [{:harnais, "~> 1.0.0", [hex: :harnais, repo: "hexpm", optional: false]}], "hexpm"},
   "plymio_fontais": {:hex, :plymio_fontais, "0.2.0", "fb82a3913a811d2da2364f293e55279a42737450729880c2ad5c3cd3b1bbd14b", [:mix], [], "hexpm"},
   "plymio_funcio": {:hex, :plymio_funcio, "0.2.0", "6d7155d9dbba82cd6a469285c3a89c4ce1f2ef72dce2a2ce2222e691a42abf13", [:mix], [{:plymio_fontais, "~> 0.2.0", [hex: :plymio_fontais, repo: "hexpm", optional: false]}], "hexpm"},
+  "plymio_name": {:hex, :plymio_name, "0.1.1", "c48d1b533ca246224c9ecc84da77f870406421c30ae4ba321156660e57f5d5a9", [:mix], [], "hexpm"},
   "plymio_vekil": {:hex, :plymio_vekil, "0.1.0", "128825fcd823384ee101ca4c9b38e4b6a20fafd469c78cd55f9f0885e96e09b2", [:mix], [{:plymio_funcio, "~> 0.2.0", [hex: :plymio_funcio, repo: "hexpm", optional: false]}], "hexpm"},
 }

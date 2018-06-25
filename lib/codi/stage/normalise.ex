@@ -133,11 +133,12 @@ defmodule Plymio.Codi.Stage.Normalise do
 
   def normalise_pattern_spec({k, v})
       when k in [
-             @plymio_codi_pattern_since
+             @plymio_codi_pattern_since,
+             @plymio_codi_pattern_deprecated
            ] do
     cond do
       Keyword.keyword?(v) -> {:ok, v}
-      true -> {:ok, [{@plymio_codi_key_since, v}]}
+      true -> {:ok, [{k, v}]}
     end
   end
 
